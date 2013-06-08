@@ -1,11 +1,11 @@
-MinecraftBot, mise à jour: Todo list
+MinecraftBot, mise ï¿½ jour: Todo list
 
 
 --------------
 Minecraft.java|
 --------------
 
---->PLACER UN APPEL À 'MinecraftBot.run()' À L'ENDROIT APPROPRIÉ */
+--->PLACER UN APPEL ï¿½ 'MinecraftBot.run()' ï¿½ L'ENDROIT APPROPRIï¿½ */
 	
 	E.G.:
 	
@@ -22,8 +22,8 @@ Minecraft.java|
 		public void startGame() throws LWJGLException
 			mBot.loadSettings();
 		
---->ANNULER LES APPELS CONSTANTS À 'playerController.resetBlockRemoving()' LORSQUE LE BOT EST EN FONCTION 
-	DANS LA MÉTHODE 'sendClickBlockToController(int par1, boolean par2)' */
+--->ANNULER LES APPELS CONSTANTS ï¿½ 'playerController.resetBlockRemoving()' LORSQUE LE BOT EST EN FONCTION 
+	DANS LA Mï¿½THODE 'sendClickBlockToController(int par1, boolean par2)' */
 	
 	E.G.:
 	
@@ -43,7 +43,7 @@ Minecraft.java|
 EntityClientPlayerMP.java|
 -------------------------
 
---->MODIFIER 'sendChatMessage(String par1Str)' POUR QUE LA MÉTHODE RENVOIE LES MESSAGES REÇU VERS 'MinecraftBot.mbChat.sendChatMessage(s)' */
+--->MODIFIER 'sendChatMessage(String par1Str)' POUR QUE LA Mï¿½THODE RENVOIE LES MESSAGES REï¿½U VERS 'MinecraftBot.mbChat.sendChatMessage(s)' */
 	
 	E.G.:
 	
@@ -69,7 +69,7 @@ NetClientHandler.java|
 EntityRenderer.java|
 -------------------
 
---->ANNULER LA PAUSE AUTOMATIQUE LORSQUE L'ÉCRAN PERD LE FOCUS */
+--->ANNULER LA PAUSE AUTOMATIQUE LORSQUE L'ï¿½CRAN PERD LE FOCUS */
 	
 	E.G.:
 	
@@ -102,7 +102,7 @@ GameSettings.java|
 		public KeyBinding keyBindBotMenu = new KeyBinding("Bot Menu", 46);
 		public KeyBinding keyBindBotMacro = new KeyBinding("Bot Macro", 47);
 		
---->AJOUTER " this.keyBindBotMenu, this.keyBindBotPause, this.keyBindBotMacro," DANS LES DEUX ÉNUMÉRATIONS
+--->AJOUTER " this.keyBindBotMenu, this.keyBindBotPause, this.keyBindBotMacro," DANS LES DEUX ï¿½NUMï¿½RATIONS
 		
 --->AJOUTER LES VARIABLES:
 	
@@ -167,6 +167,8 @@ PlayerControllerMP.java|
 ---------------------------
 MBGuiContainerCreative.java|
 ---------------------------
+
+(This class is basically a copy of 'GuiContainerCreative' in which I change every call to 'isInCreativeMode' to be true.)
 
 --->isInCreativeMode thing and return value of handleMouseClick
 
