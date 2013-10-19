@@ -9,6 +9,7 @@ public class MBManager {
 	private int macroId;
 	private int step;
 	private int[] items;
+	private int GRAVEL;
 	private MBScanner scanner; 
 	private static Stack<Bot> botList = new Stack<Bot>();
 	private MinecraftBot mb;
@@ -17,7 +18,7 @@ public class MBManager {
 	private MBVec buffVec;
 	
 	/** Configuration options */
-	private int MAX_MINING_HEIGHT = 6;
+	private int MAX_MINING_DISTANCE = 6;
 	private boolean MINE_UNDER_FEET = false;
 	
 	MBManager(MinecraftBot parMb){
@@ -83,22 +84,23 @@ public class MBManager {
 			return MANAGER_RETURN.HALT_OK;
 		}
 		
-		if(macroId == 1){
-			
-			runChopStuff();
-			
-		}else if(macroId == 2){
-			
-			runChopSquare();
-			
-		}else if(macroId == 3){
-			
-			runSearchAndReach();
-			
-		}
+		if(!runOptions()){
 		
-		/* Survival stuffs */
-		runOptions();
+			if(macroId == 1){
+				
+				runChopStuff();
+				
+			}else if(macroId == 2){
+				
+				runChopSquare();
+				
+			}else if(macroId == 3){
+				
+				runSearchAndReach();
+				
+			}
+		
+		}
 		
 		runBots();
 
@@ -106,9 +108,16 @@ public class MBManager {
 
 	}
 	
-	private void runOptions(){
+	private boolean runOptions(){
 		
+		if(mb.mc.thePlayer.getBrightness(1) < mb.TORCH_THRESHOLD && mb.tools.countItems(mb.ITEMS_TORCH) > 0 && mb.new MBVec(0, -1, 0).getId() == 0){
+			
+			botList.add(mb.new BotBuilder(mb.new MBVec(0, -1, 0), mb.ITEMS_TORCH));
+			
+			return true;
+		}
 		
+		return false;
 	}
 	
 	private void runSearchAndReach(){
@@ -120,7 +129,7 @@ public class MBManager {
 		}
 		
 		/* First step: Finish search */
-		if(step == 1 && botList.peek() != null){
+		if(step == 1 && botList.peek() != null && botList.peek() instanceof BotPath){
 			
 			if(((BotPath)botList.peek()).path != null){
 				target = ((BotPath)botList.pop()).path.firstElement();
@@ -137,23 +146,49 @@ public class MBManager {
 	private void runChopSquare(){
 		
 		if(botList.size() == 0){
-
-			if(buffVec == null) buffVec = sq.next();
-			if(buffVec != null){
-				if(buffVec.getId() != 0){
-					if(!scanner.scanVec(buffVec.getVec(0, 1, 0), mb.BLOCKS_EMPTY_LAVA_WATER_FIRE)){
-						botList.add(mb.new BotMiner(buffVec.getVec(0, 1, 0)));
-						botList.add(mb.new BotMove(buffVec.getVec(0, 1, 0), false));
-					}
-					else{
-						botList.add(mb.new BotMiner(buffVec));
-						botList.add(mb.new BotMove(buffVec, false));
-						buffVec = null;
-					}
-				}else buffVec = null;
-			}else{
+		
+			if(step == 1){
 				
-				step = 0;;
+				target = sq.next();
+				if(target == null){
+					
+					stop();
+				}else{
+					
+					botList.add(mb.new BotMove(target, false));
+					step = 2;
+				}
+			}
+			
+			if(step == 2 || GRAVEL > 0){
+				
+				if(target.distanceTo() > MAX_MINING_DISTANCE){
+					
+					stop();
+				}else{
+					
+					if(mb.scanner.scanVec(target.getVec(0, 1, 0), new int[]{12, 13})){
+						
+						botList.add(mb.new BotMiner(target.getVec(0, 1, 0)));
+						GRAVEL = 15;
+					}
+					else if(!mb.scanner.scanVec(target.getVec(0, 1, 0), mb.BLOCKS_EMPTY_LAVA_WATER_FIRE)) botList.add(mb.new BotMiner(target.getVec(0, 1, 0)));
+					else{ 
+						botList.add(mb.new BotMiner(target));
+						if(GRAVEL == 0) step = 3;
+						else GRAVEL--;
+					}
+				}
+			}
+			
+			if(step == 3){
+				
+				if(mb.scanner.scanVec(target.getVec(0, -1, 0), mb.BLOCKS_EMPTY_LAVA_WATER_FIRE)){
+					
+					botList.add(mb.new BotBuilder(target.getVec(0, -1, 0), mb.BLOCKS_BUILD));
+				}
+				
+				step = 1;
 			}
 		}
 	}
@@ -166,7 +201,7 @@ public class MBManager {
 			if((step == 4 || step == 5) && botList.size() == 0){
 				
 				/* If one block over target is searched id, mine it (After coming back to original position)! */
-				if(Arrays.binarySearch(items, target.getId(0, 1, 0)) >= 0 && target.distanceTo(mb.new MBVec(true)) <= MAX_MINING_HEIGHT - 2){
+				if(Arrays.binarySearch(items, target.getId(0, 1, 0)) >= 0 && target.distanceTo(mb.new MBVec(true)) <= MAX_MINING_DISTANCE - 2){
 					
 					target = target.getVec(0, 1, 0);
 					step = 6;

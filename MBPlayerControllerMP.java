@@ -1,6 +1,6 @@
 package net.minecraft.src;
 
-import net.minecraft.client.Minecraft;
+import net.minecraft.client.*;
 
 public class MBPlayerControllerMP extends PlayerControllerMP
 {

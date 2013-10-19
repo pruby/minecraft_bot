@@ -24,7 +24,8 @@ public class MinecraftBot {
 	public Minecraft mc;
 	private MBManager manager;
 	public MBTools tools;
-	private MBScanner scanner;
+	public MBScanner scanner;
+	private MBInventory inventory;
     private long lastTick;
     private long tickCount;
     private BotPath tmpPath;
@@ -34,7 +35,7 @@ public class MinecraftBot {
 	private boolean btnJump;
 	
 	/** Constants */
-	private static final int PATH_SEARCH_TIMEOUT = 5000;
+	private static int PATH_SEARCH_TIMEOUT = 5000;
 	
 	public static int[] BLOCKS_LAVA_WATER_FIRE = {8, 9, 10, 11, 51};
 	public static int[] BLOCKS_LAVA_WATER = {8, 9, 10, 11};
@@ -42,17 +43,19 @@ public class MinecraftBot {
 	public static int[] BLOCKS_BUILD = {1, 3, 4};
 	public static int[] BLOCKS_DIRT = {2, 3, 12, 13, 31, 78, 82, 88, 110};
 	public static int[] BLOCKS_WOOD = {5, 17};
-	public static int[] BLOCKS_EMPTY = {0, 31, 37, 50, 66, 68, 78, 106};
+	public static int[] BLOCKS_EMPTY = {0, 31, 37, 50, 65, 66, 68, 78, 106};
 	public static int[] BLOCKS_EMPTY_WATER = {0, 9, 10, 31, 37, 50, 66, 68, 78, 106};
 	public static int[] BLOCKS_EMPTY_LAVA_WATER_FIRE;
-	
-	private static final int[] ITEMS_PICKAXES = {257, 270, 274, 278, 285};
-	private static final int[] ITEMS_SHOVELS = {256, 269, 273, 277, 284};
-	private static final int[] ITEMS_AXES = {258, 271, 275, 279, 286};
-	private static final int[] ITEMS_FOOD = {297, 354, 366, 349, 320, 357, 322, 362, 360, 335, 39, 40, 282, 361, 363, 365, 349, 319, 260, 367, 295, 364, 353, 338, 296};
+
+	public static final int[] ITEMS_TORCH = {50};
+	public static final int[] ITEMS_PICKAXES = {257, 270, 274, 278, 285};
+	public static final int[] ITEMS_SHOVELS = {256, 269, 273, 277, 284};
+	public static final int[] ITEMS_AXES = {258, 271, 275, 279, 286};
+	public static final int[] ITEMS_FOOD = {297, 354, 366, 349, 320, 357, 322, 362, 360, 335, 39, 40, 282, 361, 363, 365, 349, 319, 260, 367, 295, 364, 353, 338, 296};
 
 	private static String CMD_PREFIX = "\\.";
 	private static int LAG = 5;
+	public double TORCH_THRESHOLD = 0.2;
 	
 	/** KeyBinding */
 	public static KeyBinding keyBindBotPause = new KeyBinding("Bot v2 Pause", 23);
@@ -67,6 +70,7 @@ public class MinecraftBot {
 		tools = new MBTools();
 		chat = new MBChat();
 		scanner = new MBScanner();
+		inventory = new MBInventory();
 		this.mc = parMc;
 		if(firstInstance){
 			
@@ -86,7 +90,7 @@ public class MinecraftBot {
 		
 		/* Key listener */
 		if(this.keyBindBotMacro.isPressed()) manager = MBManager.chopStuff(this, BLOCKS_WOOD);
-		if(this.keyBindBotMenu.isPressed()) tools.s("Brightness: " + mc.thePlayer.getBrightness(1));
+		if(this.keyBindBotMenu.isPressed()) tools.s("Face: " + mc.objectMouseOver.sideHit);
 		if(this.keyBindBotPause.isPressed()) manager = MBManager.chopSquare(this, new MBSquare(mb));
 		
 		/* If exist, run manager and delete it if return value is false */
@@ -258,44 +262,38 @@ public class MinecraftBot {
 	}
 	
 	/** Bot for inventory management */
-	class BotInventory implements Bot {
+	class MBInventory {
 		
 		int[] targetItems;
 
-		/** Contructor */
-		BotInventory(int item){ 
+		public boolean equip(int item){ 
 			
-			this(new int[]{item});
+			return equip(new int[]{item});
 			}
 
-		/** Contructor */
-		BotInventory(int[] items){ 
+		public boolean equip(int[] items){ 
 			
 			targetItems = items;
+			boolean actionNeeded = !isHoldingItems() && tools.countItems(targetItems) > 0;
+			if(actionNeeded) run();
+			return actionNeeded;
 			}
 
-		/** Contructor */
-		BotInventory(MBVec vec){ 
+		public boolean equip(MBVec vec){ 
 			
+			targetItems = new int[]{0};
 			if(scanner.scanVec(vec, BLOCKS_ORE)) targetItems = ITEMS_PICKAXES;
 	   else if(scanner.scanVec(vec, BLOCKS_DIRT)) targetItems = ITEMS_SHOVELS;
 	   else if(scanner.scanVec(vec, BLOCKS_WOOD)) targetItems = ITEMS_AXES;
+			return equip(targetItems);
 			}
 
 		/** Return positive value when task is finished successfully. 
 		 *  Return negative value when task is finished with errors. 
 		 *  Return zero when task is not finished. */
-		public void run(Stack<Bot> lst){ 
+		private void run(){ 
 			
-			if(lst == null) lst = new Stack<Bot>();
-			
-			if(targetItems == null || targetItems.length < 1){
-				
-				if(lst.size() > 0) lst.pop();
-				return;
-			}
-			
-			if(!isHoldingTargetItems()){
+			if(!isHoldingItems()){
 				
 				int tmpSlot = getTargetItemSlot();
 				if(tmpSlot != -1){
@@ -305,22 +303,12 @@ public class MinecraftBot {
 					mc.playerController.windowClick(mc.thePlayer.inventoryContainer.windowId, tmpSlot, 0, 0, mc.thePlayer);
 					mc.playerController.windowClick(mc.thePlayer.inventoryContainer.windowId, 36 + mc.thePlayer.inventory.currentItem, 0, 0, mc.thePlayer);
 					mc.playerController.windowClick(mc.thePlayer.inventoryContainer.windowId, tmpSlot, 0, 0, mc.thePlayer);
-				} else {
-
-					if(lst.size() > 0) lst.pop();
-					return;
 				}
-			} else {
-
-				if(lst.size() > 0) lst.pop();
-				return;
 			}
 
-			if(lst.size() > 0) lst.pop();
-			return;
-			}
+		}
 		
-		private boolean isHoldingTargetItems(){
+		public boolean isHoldingItems(){
 			
 			int itemId = mc.thePlayer.getCurrentEquippedItem() == null ? -1 : mc.thePlayer.getCurrentEquippedItem().itemID;
 			return Arrays.binarySearch(targetItems, itemId) >= 0;
@@ -361,7 +349,6 @@ public class MinecraftBot {
 		BotMiner(MBVec vec){ 
 			
 			target = vec.cP();
-			new BotInventory(vec).run(null);
 			lag = LAG;
 			flag = true;
 		}
@@ -374,18 +361,11 @@ public class MinecraftBot {
 				return;
 			}
 			
+			if(!inventory.equip(target)) damageBlock();
+			
 			if(flag) checkSide(target);
 			
-			tools.lookAt(target);
-			
-			if(target.side != 0) mc.playerController.onPlayerDamageBlock(target.xInt(), target.yInt(), target.zInt(), target.getSide());
-			else mc.gameSettings.keyBindAttack.pressed = true;
-			/*
-            mc.getSendQueue().addToSendQueue(new Packet14BlockDig(0, target.xInt(), target.yInt(), target.zInt(), target.getSide()));
-            mc.getSendQueue().addToSendQueue(new Packet14BlockDig(2, target.xInt(), target.yInt(), target.zInt(), target.getSide())); 
-            */
-			mc.thePlayer.swingItem();
-			if (target.getId() == 0){
+			if (scanner.scanVec(target, BLOCKS_EMPTY_LAVA_WATER_FIRE)){
 
 				if(lag == 0){
 					mc.gameSettings.keyBindAttack.pressed = false;
@@ -400,8 +380,8 @@ public class MinecraftBot {
 		private void checkSide(MBVec parTarget){
 			
 			flag = false;
-			Double sDist;
-			int face = 5;
+			Double sDist = 1000.0;
+			int face = 1;
 			
 			if(target.yCoord > mc.thePlayer.posY){
 				target.side = 0;
@@ -410,20 +390,23 @@ public class MinecraftBot {
 			}
 			
 			parTarget.xCoord += 0.5;
-			sDist = parTarget.distanceTo();
+			if(scanner.scanVec(new MBVec(parTarget.xCoord + 0.5, parTarget.yCoord, parTarget.zCoord), BLOCKS_EMPTY)){
+				sDist = parTarget.distanceTo();
+				face = 5;
+			}
 			parTarget.xCoord -= 1.0;
-			if(parTarget.distanceTo() < sDist){
+			if(parTarget.distanceTo() < sDist && scanner.scanVec(new MBVec(parTarget.xCoord - 0.5, parTarget.yCoord, parTarget.zCoord), BLOCKS_EMPTY)){
 				sDist = parTarget.distanceTo();
 				face = 4;
 			}
 			parTarget.xCoord += 0.5;
 			parTarget.zCoord += 0.5;
-			if(parTarget.distanceTo() < sDist){
+			if(parTarget.distanceTo() < sDist && scanner.scanVec(new MBVec(parTarget.xCoord, parTarget.yCoord, parTarget.zCoord + 0.5), BLOCKS_EMPTY)){
 				sDist = parTarget.distanceTo();
 				face = 3;
 			}
 			parTarget.zCoord -= 1.0;
-			if(parTarget.distanceTo() < sDist){
+			if(parTarget.distanceTo() < sDist && scanner.scanVec(new MBVec(parTarget.xCoord, parTarget.yCoord, parTarget.zCoord - 0.5), BLOCKS_EMPTY)){
 				sDist = parTarget.distanceTo();
 				face = 2;
 			}
@@ -433,37 +416,51 @@ public class MinecraftBot {
 			
 			switch(face){
 			case 5:{
-				parTarget.xCoord += 0.4;
+				parTarget.xCoord += 0.49;
 				break;
 			}
 			case 4:{
-				parTarget.xCoord -=0.4;
+				parTarget.xCoord -=0.49;
 				break;
 			}
 			case 3:{
-				parTarget.zCoord += 0.4;
+				parTarget.zCoord += 0.49;
 				break;
 			}
 			case 2:{
-				parTarget.zCoord -= 0.4;
+				parTarget.zCoord -= 0.49;
 				break;
 			}
 			}
 			
+		}
+		
+		private void damageBlock(){
+			
+			tools.lookAt(target);
+			/*if(target.side != 0) mc.playerController.onPlayerDamageBlock(target.xInt(), target.yInt(), target.zInt(), target.getSide());
+			else */mc.gameSettings.keyBindAttack.pressed = true;
+			mc.thePlayer.swingItem();
+
+			/*
+            mc.getSendQueue().addToSendQueue(new Packet14BlockDig(0, target.xInt(), target.yInt(), target.zInt(), target.getSide()));
+            mc.getSendQueue().addToSendQueue(new Packet14BlockDig(2, target.xInt(), target.yInt(), target.zInt(), target.getSide())); 
+            */
 		}
 	}
 	
 	/** Bot for building */
 	class BotBuilder implements Bot {
 
-		MBVec target;
+		MBVec target, target_bis;
 		int[] items;
 		
-		BotBuilder(MBVec vec, int[] items, int parSide){ 
+		BotBuilder(MBVec vec, int[] items){ 
 			
-			target = vec.cP();
-			target.side = parSide;
-			new BotInventory(items).run(null);
+			target = vec;
+			target_bis = getVec(vec);
+			inventory.equip(items);
+			this.items = items;
 		}
 
 		/** Return positive value when task is finished successfully. 
@@ -471,11 +468,72 @@ public class MinecraftBot {
 		 *  Return zero when task is not finished. */
 		public void run(Stack<Bot> lst){ 
 			
-			tools.lookAt(target);
-			mc.thePlayer.sendQueue.addToSendQueue(new Packet15Place(target.xInt(), target.yInt(), target.zInt(), target.getSide(), mc.thePlayer.inventory.getCurrentItem(), (float)target.hitVec().xCoord, (float)target.hitVec().yCoord, (float)target.hitVec().zCoord));
-			mc.thePlayer.swingItem();
+			if(target_bis == null){
+				lst.pop();
+				return;
+			}
+			
+			if(inventory.isHoldingItems()){
+				tools.lookAt(target_bis);
+				mc.thePlayer.sendQueue.addToSendQueue(new Packet15Place(target_bis.xInt(), target_bis.yInt(), target_bis.zInt(), target_bis.getSide(), mc.thePlayer.inventory.getCurrentItem(), (float)target_bis.hitVec().xCoord, (float)target_bis.hitVec().yCoord, (float)target_bis.hitVec().zCoord));
+				mc.thePlayer.swingItem();
+			}
+			
+			if(lst != null && lst.size() > 0){
+				if(scanner.scanVec(target, items) || tools.countItems(items) == 0){
+					lst.pop();
+				}
+			}
 			
 			return;
+		}
+		
+		private MBVec getVec(MBVec vec){
+			
+			int face = -1;
+			MBVec buffVec = vec.getVec();
+			
+			buffVec.yCoord -= 1;
+			if(!scanner.scanVec(buffVec, BLOCKS_EMPTY_LAVA_WATER_FIRE)){
+				
+				buffVec.side = 1;
+				return buffVec;
+			}
+			buffVec.yCoord += 2;
+			if(!scanner.scanVec(buffVec, BLOCKS_EMPTY_LAVA_WATER_FIRE)){
+				
+				buffVec.side = 0;
+				return buffVec;
+			}
+			buffVec.yCoord -= 1;
+			buffVec.zCoord -= 1;
+			if(!scanner.scanVec(buffVec, BLOCKS_EMPTY_LAVA_WATER_FIRE)){
+				
+				buffVec.side = 3;
+				return buffVec;
+			}
+			buffVec.zCoord += 2;
+			if(!scanner.scanVec(buffVec, BLOCKS_EMPTY_LAVA_WATER_FIRE)){
+				
+				buffVec.side = 2;
+				return buffVec;
+			}
+			buffVec.zCoord -= 1;
+			buffVec.xCoord -= 1;
+			if(!scanner.scanVec(buffVec, BLOCKS_EMPTY_LAVA_WATER_FIRE)){
+				
+				buffVec.side = 5;
+				return buffVec;
+			}
+			buffVec.xCoord += 2;
+			if(!scanner.scanVec(buffVec, BLOCKS_EMPTY_LAVA_WATER_FIRE)){
+				
+				buffVec.side = 4;
+				return buffVec;
+			}
+			buffVec.xCoord -= 1;
+			
+			return null;
 		}
 	}
 	
@@ -852,10 +910,8 @@ public class MinecraftBot {
 						}
 				}
 				
-				tools.p("AStar (" + name + ") - Paths scanned: " + closeNode.size());
 				if(status == 1) parsePath();
 				parent.aStar = null;
-				tools.p("AStar (" + name + ") - TASK FINISHED");
 			}
 	
 			private void parsePath(){
@@ -871,13 +927,12 @@ public class MinecraftBot {
 				}while (currNode!=null);
 				
 				tools.p("AStar (" + name + ") - Path ready. (Size : " + parent.path.size() + " blocks.)");
-				tools.p("AStar (" + name + ") - Last node is at : " + parent.path.firstElement().xCoord + ", " + parent.path.firstElement().yCoord + ", " + parent.path.firstElement().zCoord);
 			}
 
 		}
 
-		public BotPath(MBVec parVec, String parName){ MBVec deleteMe = new MBVec(0, -1, 0); this.name = parName; start = new NodeReach(null, deleteMe.xInt(), deleteMe.yInt(), deleteMe.zInt(), parVec.xInt(), parVec.yInt(), parVec.zInt(), 0); tools.p("NodeStore (" + name + ") - Reach X: " + start.x2 + " Y: " + start.y2 + " Z: " + start.z2); search();}
-		public BotPath(MBVec parStart, MBVec parEnd, String parName){ this.name = parName; start = new Node(null, parStart.xInt(), parStart.yInt(), parStart.zInt(), parEnd.xInt(), parEnd.yInt(), parEnd.zInt(), 0); tools.p("NodeStore (" + name + ") - Start set. X: " + start.x + " Y: " + start.y + " Z: " + start.z); search();}
+		public BotPath(MBVec parVec, String parName){ MBVec deleteMe = new MBVec(0, -1, 0); this.name = parName; start = new NodeReach(null, deleteMe.xInt(), deleteMe.yInt(), deleteMe.zInt(), parVec.xInt(), parVec.yInt(), parVec.zInt(), 0); search();}
+		public BotPath(MBVec parStart, MBVec parEnd, String parName){ this.name = parName; start = new Node(null, parStart.xInt(), parStart.yInt(), parStart.zInt(), parEnd.xInt(), parEnd.yInt(), parEnd.zInt(), 0); search();}
 		public BotPath(MBVec vec, int[] items, String parName){ this.name = parName; start = new NodeSearch(null, vec.xInt(), vec.yInt(), vec.zInt(), vec.xInt(), vec.yInt(), vec.zInt(), 0, items, false); search();}
 		public BotPath(MBVec vec, int[] items, String parName, boolean parOutside){ this.name = parName; start = new NodeSearch(null, vec.xInt(), vec.yInt(), vec.zInt(), vec.xInt(), vec.yInt(), vec.zInt(), 0, items, parOutside); search();}
 		public Stack<MBVec> getPath(){ return path;}
@@ -892,6 +947,16 @@ public class MinecraftBot {
 				lst.pop();
 				return;
 			}
+		}
+		
+		public boolean isSearching(){
+			
+			return aStar != null;
+		}
+		
+		public boolean isReady(){
+			
+			return path != null;
 		}
 	
 	}
@@ -946,6 +1011,19 @@ public class MinecraftBot {
 					if(args.length > 2) return "";
 					manager = MBManager.chopStuff(mb, new int[]{itemId});
 				}
+				else if(cmd[0].toLowerCase().compareTo("torch") == 0)
+				{
+					boolean enabled = true;
+					double threshold = 0.2;
+					if(args.length >= 1){
+						enabled = args[0].toLowerCase().compareTo("on") == 0;
+					}
+					if(args.length == 2){
+						threshold = Double.parseDouble(args[1]);
+					}
+					if(args.length > 2) return "";
+					TORCH_THRESHOLD = enabled ? threshold : 0 ;
+				}
 				else if(cmd[0].toLowerCase().compareTo("search") == 0)
 				{
 					int itemId = 17;
@@ -961,7 +1039,16 @@ public class MinecraftBot {
 						LAG = Integer.parseInt(args[0]);
 					}
 					if(args.length > 1) return "";
-				}else if(cmd[0].toLowerCase().compareTo("stop") == 0)
+				}
+				else if(cmd[0].toLowerCase().compareTo("timeout") == 0)
+				{
+					if(args.length == 1){
+						PATH_SEARCH_TIMEOUT = Integer.parseInt(args[0]);
+						tools.s("Search timout changed to §4" + Integer.parseInt(args[0]) + "§6ms.");
+					}
+					if(args.length > 1) return "";
+				}
+				else if(cmd[0].toLowerCase().compareTo("stop") == 0)
 				{
 					if(manager != null) manager.stop();
 				}
@@ -1091,8 +1178,9 @@ public class MinecraftBot {
 		private void lookAt(Vec3 vec){ lookAt(yawFromVec(vec), pitchFromVec(vec));}
 		private void lookAt(Vec3 vec, float pitch){ lookAt(yawFromVec(vec),  pitch);}
 		private void lookAt(float yaw, float pitch){ mc.thePlayer.setRotation(yaw,  pitch);}
-		
-		private int getSide(){float tmpY = rY(mc.thePlayer.rotationYaw);return tmpY==0.0? 3: tmpY==90.0? 4: tmpY==180.0? 2: 5;} // Associate player yaw to block side
+
+		int getSide(){float tmpY = rY(mc.thePlayer.rotationYaw);return tmpY==0.0? 3: tmpY==90.0? 4: tmpY==180.0? 2: 5;} // Associate player yaw to block side
+		MBVec getBlockFromSide(MBVec vec){MBVec tmpVec = vec.getVec(); switch(vec.getSide()){case 2:{tmpVec.zCoord -= 1; break;} case 3:{tmpVec.zCoord += 1; break;} case 4:{tmpVec.xCoord -= 1; break;} case 5:{tmpVec.xCoord += 1; break;} case 1:{tmpVec.yCoord += 1; break;} case 0:{tmpVec.yCoord -= 1; break;} }; return tmpVec;} // Associate player yaw to block side
 		
 		private float yawFromVec(Vec3 target){ return yawFrom2Vec(mc.thePlayer.getPosition(1), target);}
 		private float yawFrom2Vec(Vec3 start, Vec3 end){ return (float)(Math.atan2(start.xCoord - end.xCoord, end.zCoord - start.zCoord) * 180 / Math.PI);}
